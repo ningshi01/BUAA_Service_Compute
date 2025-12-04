@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>服务计算</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            min-height: 30px;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>服务计算</h1>
+        
+        <div class="section">
+            <h3>1. 随机数生成</h3>
+            <button onclick="generateRandom()">生成随机数</button>
+            <div class="result" id="randomResult"></div>
+        </div>
+
+        <div class="section">
+            <h3>2. 计算服务</h3>
+            <input type="number" id="num1" placeholder="数字1" value="10">
+            <input type="number" id="num2" placeholder="数字2" value="5">
+            <button onclick="calculate('add')">加法</button>
+            <button onclick="calculate('subtract')">减法</button>
+            <button onclick="calculate('multiply')">乘法</button>
+            <button onclick="calculate('divide')">除法</button>
+            <div class="result" id="calcResult"></div>
+        </div>
+
+        <div class="section">
+            <h3>3. Redis缓存操作</h3>
+            <input type="text" id="cacheKey" placeholder="键" value="test-key">
+            <input type="text" id="cacheValue" placeholder="值" value="test-value">
+            <button onclick="setCache()">设置缓存</button>
+            <button onclick="getCache()">获取缓存</button>
+            <button onclick="deleteCache()">删除缓存</button>
+            <div class="result" id="cacheResult"></div>
+        </div>
+    </div>
+
+    <script>
+        const RANDOM_API = 'http://localhost:30002';
+        const COMPUTE_API = 'http://localhost:30001';
+        const REDIS_API = 'http://localhost:30003';
+
+        async function generateRandom() {
+            try {
+                const response = await fetch(`${RANDOM_API}/random`);
+                const data = await response.json();
+                document.getElementById('randomResult').innerHTML = 
+                    `<strong>随机数:</strong> ${data.random_number}`;
+            } catch (error) {
+                document.getElementById('randomResult').innerHTML = 
+                    `<strong style="color: red;">错误:</strong> ${error.message}`;
+            }
+        }
+
+        async function calculate(operation) {
+            const num1 = parseFloat(document.getElementById('num1').value);
+            const num2 = parseFloat(document.getElementById('num2').value);
+            
+            try {
+                const response = await fetch(`${COMPUTE_API}/calculate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        num1: num1,
+                        num2: num2,
+                        operation: operation
+                    })
+                });
+                const data = await response.json();
+                
+                if (data.error) {
+                    document.getElementById('calcResult').innerHTML = 
+                        `<strong style="color: red;">错误:</strong> ${data.error}`;
+                } else {
+                    document.getElementById('calcResult').innerHTML = 
+                        `<strong>结果:</strong> ${num1} ${getOperationSymbol(operation)} ${num2} = ${data.result}`;
+                }
+            } catch (error) {
+                document.getElementById('calcResult').innerHTML = 
+                    `<strong style="color: red;">错误:</strong> ${error.message}`;
+            }
+        }
+
+        function getOperationSymbol(operation) {
+            const symbols = {
+                'add': '+',
+                'subtract': '-',
+                'multiply': '×',
+                'divide': '÷'
+            };
+            return symbols[operation] || operation;
+        }
+
+        async function setCache() {
+            const key = document.getElementById('cacheKey').value;
+            const value = document.getElementById('cacheValue').value;
+            
+            try {
+                const response = await fetch(`${REDIS_API}/cache`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ key: key, value: value })
+                });
+                const data = await response.json();
+                document.getElementById('cacheResult').innerHTML = 
+                    `<strong>成功:</strong> ${data.message}`;
+            } catch (error) {
+                document.getElementById('cacheResult').innerHTML = 
+                    `<strong style="color: red;">错误:</strong> ${error.message}`;
+            }
+        }
+
+        async function getCache() {
+            const key = document.getElementById('cacheKey').value;
+            
+            try {
+                const response = await fetch(`${REDIS_API}/cache/${key}`);
+                const data = await response.json();
+                
+                if (data.value !== null) {
+                    document.getElementById('cacheResult').innerHTML = 
+                        `<strong>值:</strong> ${data.value}`;
+                } else {
+                    document.getElementById('cacheResult').innerHTML = 
+                        `<strong>未找到:</strong> 键 "${key}" 不存在`;
+                }
+            } catch (error) {
+                document.getElementById('cacheResult').innerHTML = 
+                    `<strong style="color: red;">错误:</strong> ${error.message}`;
+            }
+        }
+
+        async function deleteCache() {
+            const key = document.getElementById('cacheKey').value;
+            
+            try {
+                const response = await fetch(`${REDIS_API}/cache/${key}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                document.getElementById('cacheResult').innerHTML = 
+                    `<strong>成功:</strong> ${data.message}`;
+            } catch (error) {
+                document.getElementById('cacheResult').innerHTML = 
+                    `<strong style="color: red;">错误:</strong> ${error.message}`;
+            }
+        }
+    
+    
+    </script>
+</body>
+</html>

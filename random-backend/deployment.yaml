@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: random-backend
+  labels:
+    app: random-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: random-backend
+  template:
+    metadata:
+      labels:
+        app: random-backend
+    spec:
+      containers:
+      - name: random-backend
+        image: random-backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5001
+        env:
+        - name: FLASK_ENV
+          value: "production"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: random-backend-service
+spec:
+  type: NodePort
+  selector:
+    app: random-backend
+  ports:
+  - protocol: TCP
+    port: 5001
+    targetPort: 5001
+    nodePort: 30002
